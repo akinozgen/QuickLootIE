@@ -10,6 +10,30 @@ using namespace QuickLoot::Config;
 
 namespace QuickLoot
 {
+	namespace
+	{
+		// CommonLib resolves PlayerCharacter::HasActorDoingCommand() through a hardcoded
+		// member offset - RelocateMemberIfNewer(RUNTIME_SSE_1_6_629, 0x894, 0x89C) - and
+		// src/RE/P/PlayerCharacter.cpp has not been updated since Jan 2024, so 1.7.x was
+		// never covered. On 1.7.104 the field sits 8 bytes further along, at 0x8A4; 0x89C
+		// holds an unrelated non-zero value there, so the stock accessor always reports
+		// true and the loot menu can never open.
+		//
+		// Verified by watching player memory on 1.7.104 while issuing follower commands:
+		// 0x8A4 goes 0 -> <follower handle> -> 0 exactly once per command, while 0x89C
+		// stayed at 0x10 the whole time.
+		constexpr std::ptrdiff_t kActorDoingCommandOffset_1_7 = 0x8A4;
+
+		bool HasActorDoingCommand(const RE::PlayerCharacter* a_player)
+		{
+			if (REL::Module::get().version() >= REL::Version(1, 7, 0, 0)) {
+				const auto* raw = reinterpret_cast<const std::byte*>(a_player) + kActorDoingCommandOffset_1_7;
+				return *reinterpret_cast<const std::uint32_t*>(raw) != 0;
+			}
+
+			return a_player->HasActorDoingCommand();
+		}
+	}
 #pragma warning(push)
 #pragma warning(disable: 4100)
 
@@ -150,13 +174,7 @@ namespace QuickLoot
 			return false;
 		}
 
-		// CommonLib resolves HasActorDoingCommand() through a hardcoded PlayerCharacter
-		// member offset (RelocateMemberIfNewer(RUNTIME_SSE_1_6_629, 0x894, 0x89C)) that
-		// was never validated against 1.7.x - src/RE/P/PlayerCharacter.cpp has not been
-		// touched since Jan 2024. On 1.7.104 it reads unrelated memory and is always
-		// non-zero, which permanently suppresses the loot menu. Skip it until the
-		// offset is confirmed for 1.7.x.
-		if (REL::Module::get().version() < REL::Version(1, 7, 0, 0) && player->HasActorDoingCommand()) {
+		if (HasActorDoingCommand(player)) {
 			logger::debug("LootMenu disabled because player is commanding a follower");
 			return false;
 		}
