@@ -267,7 +267,12 @@ namespace QuickLoot::Input
 			return false;
 		}
 
+		// 1.7.x: id 510926 is not mapped in the 1.7.x address library databases
+		// (checked versionlib-1-7-99-0.bin and versionlib-1-7-104-0.bin, both empty,
+		// as are the neighbouring ids). 443396 resolves there and points at the same
+		// function - verified on 1.7.104, where it lands on 0xCF97B0.
 		uint64_t aeId =
+			REL::Module::get().version() >= REL::Version(1, 7, 0, 0) ? 443396 :
 			REL::Module::get().version() >= REL::Version(1, 6, 1179, 0) ? 510926 :
 			REL::Module::get().version() >= REL::Version(1, 6, 1130, 0) ? 443396 :
 																		  68622;

@@ -150,7 +150,13 @@ namespace QuickLoot
 			return false;
 		}
 
-		if (player->HasActorDoingCommand()) {
+		// CommonLib resolves HasActorDoingCommand() through a hardcoded PlayerCharacter
+		// member offset (RelocateMemberIfNewer(RUNTIME_SSE_1_6_629, 0x894, 0x89C)) that
+		// was never validated against 1.7.x - src/RE/P/PlayerCharacter.cpp has not been
+		// touched since Jan 2024. On 1.7.104 it reads unrelated memory and is always
+		// non-zero, which permanently suppresses the loot menu. Skip it until the
+		// offset is confirmed for 1.7.x.
+		if (REL::Module::get().version() < REL::Version(1, 7, 0, 0) && player->HasActorDoingCommand()) {
 			logger::debug("LootMenu disabled because player is commanding a follower");
 			return false;
 		}
